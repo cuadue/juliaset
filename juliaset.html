@@ -1,0 +1,45 @@
+<html>
+    <head>
+        <script src=juliaset.js></script>
+
+        <script id=vertex-shader type=x-shader/x-vertex>
+attribute vec2 backdrop_pos;
+varying vec2 v_plot_position;
+uniform float u_zoom;
+
+void main(void) {
+    gl_Position = vec4(backdrop_pos, 1.0, 1.0);
+    v_plot_position = backdrop_pos / u_zoom;
+}
+
+        </script>
+
+        <script id=frag-shader type=x-shader/x-fragment>
+precision highp float;
+
+varying vec2 v_plot_position;
+
+void main(void) {
+    gl_FragColor = vec4(
+        v_plot_position.x,
+        v_plot_position.y,
+        v_plot_position.x * v_plot_position.y,
+        1);
+}
+
+        </script>
+
+        <script>
+window.onload = function () {
+  juliaset('canvas', 'frag-shader', 'vertex-shader');
+}
+        </script>
+        <style>
+            #canvas { height: 480px; width: 640px; }
+        </style>
+    </head>
+    <body>
+        <canvas id='canvas'></canvas>
+    </body>
+</html>
+
