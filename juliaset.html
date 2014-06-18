@@ -16,9 +16,6 @@
     void main(void) {
         vec2 translated = backdrop_pos - u_translation;
         gl_Position = vec4(translated * u_zoom * u_scale, 0, 1.0);
-
-        //float aspect_ratio = u_resolution.x / u_resolution.y;
-        //v_plot_position = backdrop_pos * vec2(aspect_ratio, 1) / u_zoom;
         v_plot_position = backdrop_pos;
     }
 
@@ -33,15 +30,38 @@
         return x * x;
     }
 
+    const int max_iter = 100;
+
     void main(void) {
+        float x0 = v_plot_position.x;
+        float y0 = v_plot_position.y;
+
+        float x = 0.0, y = 0.0;
+
+        int ii = 0;
+        for (int i = 0; i < max_iter; i++) {
+            float xtmp = x * x - y * y + x0;
+            y = 2.0 * x * y + y0;
+            x = xtmp;
+            ii++;
+
+            if (x * x + y * y < 2.0) {
+                break;
+            }
+        }
+
+        float r = float(ii) / float(max_iter);
+        gl_FragColor = vec4(r, r, r, 1);
+
+        /*
         float r2 = sqrt(sqr(v_plot_position.x) + sqr(v_plot_position.y));
 
         if (abs(v_plot_position.x) > .01 || abs(v_plot_position.y) > .01)
             gl_FragColor = vec4(0, v_plot_position.x, v_plot_position.y, 1);
         else
             gl_FragColor = vec4(1, 0, 0, 1);
+        */
     }
-
 </script>
 
 <script>

@@ -169,22 +169,24 @@ function juliaset(canvas_id, frag_id, vertex_id) {
     var set_scale = uniform_setter('2f', 'u_scale');
     var set_translation = uniform_setter('2f', 'u_translation');
 
+    var left = -2.5, right = 1, top = 1.5, bot = -1.5;
+
     var draw_backdrop = vertex_attrib({
         program: program,
         name: 'backdrop_pos',
         item_size: 2,
         array_mode: gl.TRIANGLE_STRIP,
         vertices: [
-             1,  1,
-            -1,  1,
-             1, -1,
-            -1, -1]
+            right, top,
+            left, top,
+            right, bot,
+            left, bot]
     });
 
     gl.useProgram(program);
 
     var global_zoom = .5;
-    var global_center = {x: 0, y: 0};
+    var global_center = {x: (left + right) / 2, y: (top + bot) / 2};
     var aspect_ratio;
 
     function draw() {
@@ -274,7 +276,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
                 if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
                     // Click
                     global_center = { x: p.x, y: p.y };
-                    console.log('Moving absolute center');
+                    global_zoom *= 1.5;
                 }
             }
 
