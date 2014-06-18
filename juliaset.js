@@ -10,9 +10,10 @@ function get_webgl(canvas) {
 
 Function.prototype.curry = function () {
     var fn = this;
-    var args = Array.prototype.slice.call(arguments);
+    var stored = Array.prototype.slice.call(arguments);
     return function () {
-        return fn.apply(this, args.concat(Array.prototype.slice.call(arguments)));
+        var args = stored.concat(Array.prototype.slice.call(arguments));
+        return fn.apply(this, args);
     }
 }
 
@@ -23,9 +24,16 @@ function set_default_args(args, defaults) {
     return ret;
 }
 
+function element_by_id(id) {
+    var ret = document.getElementById(id);
+    if (ret)
+        return ret;
+    else 
+        throw 'Failed finding element with ID ' + ret;
+}
+
 function juliaset(canvas_id, frag_id, vertex_id) {
-    var canvas = document.getElementById(canvas_id);
-    if (!canvas) return;
+    var canvas = element_by_id(canvas_id);
     var gl = get_webgl(canvas);
 
     var req_anim_frame = window.requestAnimationFrame ||
@@ -36,8 +44,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
     if (!req_anim_frame) return;
 
     function shader_object(id) {
-        var elem = document.getElementById(id);
-        if (!elem) throw 'Failed finding element ' + id;
+        var elem = element_by_id(id);
 
         var shader_type;
 
@@ -65,15 +72,13 @@ function juliaset(canvas_id, frag_id, vertex_id) {
     function shader_program() {
         var program = gl.createProgram();
         if (!program) {
-            alert ('Failed making a program?');
-            return;
+            throw 'Failed making a program';
         }
 
         for (var i = 0; i < arguments.length; i++) {
             var shader = arguments[i];
             if (!shader) {
-                console.log('Shader ' + i + ' is null');
-                return;
+                throw 'Shader ' + i + ' is null';
             }
             gl.attachShader(program, arguments[i]);
         }
@@ -106,15 +111,17 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         gl.enableVertexAttribArray(loc);
 
         var buffer = gl.createBuffer();
-        var vertices_arr;
+        var vertices_arr, num_elems;
 
         function buffer_data(vs, buffer_usage) {
             if (vs.length % args.item_size != 0) {
-                throw 'Invalid array length';
+                throw 'Invalid array length ' + vs.length;
             }
-            vertices_arr = new Float32Array(vs);
-            buffer = gl.createBuffer();
 
+            vertices_arr = new Float32Array(vs);
+            num_elems = Math.floor(vertices_arr.length / args.item_size);
+
+            buffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.bufferData(gl.ARRAY_BUFFER, vertices_arr, buffer_usage);
         }
@@ -134,28 +141,32 @@ function juliaset(canvas_id, frag_id, vertex_id) {
 
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.vertexAttribPointer(loc, args.item_size, gl.FLOAT, false, 0, 0);
-
-            var num_elems = Math.floor(vertices_arr.length / args.item_size);
             gl.drawArrays(args.array_mode, 0, num_elems);
-
-            if (vs) {
-                gl.deleteBuffer(buffer);
-            }
         }
     }
 
-    function uniform1f_setter(program, name) {
-        var loc = gl.getUniformLocation(program, name);
-        return function set_uniform1f(v) {
-            gl.uniform1f(loc, v);
+    function uniform_setter(gl_func_suffix, uniform_name) {
+        var func_name = 'uniform' + gl_func_suffix;
+        var func = gl[func_name];
+        if (!func) {
+            throw 'Could not find gl function ' + func_name;
         }
+
+        var loc = gl.getUniformLocation(program, uniform_name);
+        if (!loc) {
+            throw 'Could not find uniform named ' + uniform_name;
+        }
+
+        // The value of `this` needs to be the gl object, hence the `bind`
+        return func.curry(loc).bind(gl);
     }
 
     var frag_shader = shader_object(frag_id);
     var vertex_shader = shader_object(vertex_id);
     var program = shader_program(frag_shader, vertex_shader);
 
-    var set_zoom = uniform1f_setter(program, 'u_zoom');
+    var set_zoom = uniform_setter('1f', 'u_zoom');
+    var set_scale = uniform_setter('2f', 'u_scale');
 
     var draw_backdrop = vertex_attrib({
         program: program,
@@ -163,23 +174,69 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         item_size: 2,
         array_mode: gl.TRIANGLE_STRIP,
         vertices: [
-             1,  1,
-            -1,  1,
-             1, -1,
-            -1, -1]
+             10,  10,
+            -10,  10,
+             10, -10,
+            -10, -10]
     });
 
     gl.useProgram(program);
 
+    var global_zoom = .05;
+    var global_center = {x: 0, y: 0};
+
     function draw() {
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clear(gl.COLOR_BUFFER_BIG | gl.DEPTH_BUFFER_BIT);
-        set_zoom(0.5);
+        // Why do I have to do this?? It removes some awful aliasing artifacts,
+        // and fixes the aspect ratio.
+        var w = gl.canvas.clientWidth;
+        var h = gl.canvas.clientHeight;
+        canvas.height = h;
+        canvas.width = w;
+        gl.viewport(0, 0, w, h);
+        set_scale(h/w, 1);
+
+        gl.clearColor(0.5, 0.5, 0.5, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        //var w = 200;
+        //var h = 100;
+        //gl.perspective(45, w/h, 0.01, 100);
+        //set_resolution(w, h);
+
+        set_zoom(global_zoom);
         draw_backdrop();
 
         req_anim_frame(draw);
     }
 
     draw();
+
+    call(function () {
+        function screen_coords_to_plot(sx, sy) {
+            
+            return {x: px, y: py};
+        }
+
+        var start;
+        canvas.onmousedown = function canvas_onmousedown(event) {
+            start = { x: event.clientX, y: event.clientY }
+        };
+
+        canvas.onmouseup = function canvas_onmouseup(event) {
+            if (!start) return;
+
+            var x = event.clientX;
+            var y = event.clientY;
+            if (Math.abs(x - start.x) < 5 && Math.abs(y - start.y) < 5) {
+                // Click
+                global_zoom *= 2;
+            }
+            else {
+                // Drag
+            }
+
+            start = null;
+        };
+    });
 }
 

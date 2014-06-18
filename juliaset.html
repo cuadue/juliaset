@@ -1,45 +1,66 @@
+<!DOCTYPE html>
 <html>
-    <head>
-        <script src=juliaset.js></script>
+<head>
+<meta charset=UTF-8>
+<script src=juliaset.js></script>
 
-        <script id=vertex-shader type=x-shader/x-vertex>
-attribute vec2 backdrop_pos;
-varying vec2 v_plot_position;
-uniform float u_zoom;
+<script id=vertex-shader type=x-shader/x-vertex>
+    precision highp float;
 
-void main(void) {
-    gl_Position = vec4(backdrop_pos, 1.0, 1.0);
-    v_plot_position = backdrop_pos / u_zoom;
-}
+    attribute vec2 backdrop_pos;
+    varying vec2 v_plot_position;
+    uniform float u_zoom;
+    uniform vec2 u_scale;
 
-        </script>
+    void main(void) {
+        gl_Position = vec4(backdrop_pos * u_zoom * u_scale, 0, 1.0);
 
-        <script id=frag-shader type=x-shader/x-fragment>
-precision highp float;
+        //float aspect_ratio = u_resolution.x / u_resolution.y;
+        //v_plot_position = backdrop_pos * vec2(aspect_ratio, 1) / u_zoom;
+        v_plot_position = backdrop_pos;
+    }
 
-varying vec2 v_plot_position;
+</script>
 
-void main(void) {
-    gl_FragColor = vec4(
-        v_plot_position.x,
-        v_plot_position.y,
-        v_plot_position.x * v_plot_position.y,
-        1);
-}
+<script id=frag-shader type=x-shader/x-fragment>
+    precision highp float;
 
-        </script>
+    varying vec2 v_plot_position;
 
-        <script>
-window.onload = function () {
-  juliaset('canvas', 'frag-shader', 'vertex-shader');
-}
-        </script>
-        <style>
-            #canvas { height: 480px; width: 640px; }
-        </style>
-    </head>
-    <body>
-        <canvas id='canvas'></canvas>
-    </body>
+    float sqr(float x) {
+        return x * x;
+    }
+
+    void main(void) {
+        float r2 = sqr(v_plot_position.x) + sqr(v_plot_position.y);
+
+        if (abs(v_plot_position.x) < 1.0 && abs(v_plot_position.y) < 1.0)
+            gl_FragColor = vec4(r2, r2, r2, 1);
+        else
+            gl_FragColor = vec4(0, 0, 0, 1);
+        /* gl_FragColor = vec4(
+            v_plot_position.x / v_plot_position.y,
+            v_plot_position.y * v_plot_position.y,
+            v_plot_position.x * v_plot_position.y,
+            1);
+        */
+    }
+
+</script>
+
+<script>
+    window.onload = function () {
+      juliaset('canvas', 'frag-shader', 'vertex-shader');
+    }
+</script>
+<style>
+    #canvas { height: 480px; width: 640px; }
+</style>
+</head>
+
+<body>
+    <canvas id='canvas'></canvas>
+</body>
+
 </html>
 
