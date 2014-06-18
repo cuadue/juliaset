@@ -13,7 +13,8 @@
     uniform vec2 u_scale;
     uniform vec2 u_translation;
 
-    void main(void) {
+    void main(void)
+    {
         vec2 translated = backdrop_pos - u_translation;
         gl_Position = vec4(translated * u_zoom * u_scale, 0, 1.0);
         v_plot_position = backdrop_pos;
@@ -30,28 +31,55 @@
         return x * x;
     }
 
-    const int max_iter = 100;
+    const int max_iter = 1000;
+    const float saturation = 0.8, luminance = 0.8;
 
-    void main(void) {
+    vec3 hsl_to_rgb(float h, float s, float l)
+    {
+        h = h * 360.0 / 60.0;
+
+        float h_mod_2;
+
+        if (h < 4.0) h_mod_2 = h - 2.0;
+        else if (h < 6.0) h_mod_2 = h - 4.0;
+        else h_mod_2 = h - 6.0;
+
+        float c = s * s * (1.0 - abs(l - 1.0));
+        float x = c * (1.0 - abs(h_mod_2));
+
+        int ih = int(h);
+
+        if (ih == 0) return vec3(c, x, 0);
+        if (ih == 1) return vec3(x, c, 0);
+        if (ih == 2) return vec3(0, c, x);
+        if (ih == 3) return vec3(0, x, c);
+        if (ih == 4) return vec3(x, 0, c);
+        if (ih == 5) return vec3(c, 0, x);
+        return vec3(0, 0, h/1000.0);
+    }
+
+    void main(void)
+    {
         float x0 = v_plot_position.x;
         float y0 = v_plot_position.y;
 
         float x = 0.0, y = 0.0;
 
-        int ii = 0;
+        int num_iter = 0;
         for (int i = 0; i < max_iter; i++) {
-            float xtmp = x * x - y * y + x0;
+            float xtmp = sqr(x) - sqr(y) + x0;
             y = 2.0 * x * y + y0;
             x = xtmp;
-            ii++;
 
-            if (x * x + y * y < 2.0) {
+            num_iter++;
+
+            if (sqr(x) + sqr(y) > 2.0) {
                 break;
             }
         }
 
-        float r = float(ii) / float(max_iter);
-        gl_FragColor = vec4(r, r, r, 1);
+        float h = float(num_iter) / float(max_iter);
+        gl_FragColor = vec4(hsl_to_rgb(h, saturation, luminance), 1);
 
         /*
         float r2 = sqrt(sqr(v_plot_position.x) + sqr(v_plot_position.y));
