@@ -11,9 +11,11 @@
     varying vec2 v_plot_position;
     uniform float u_zoom;
     uniform vec2 u_scale;
+    uniform vec2 u_translation;
 
     void main(void) {
-        gl_Position = vec4(backdrop_pos * u_zoom * u_scale, 0, 1.0);
+        vec2 translated = backdrop_pos - u_translation;
+        gl_Position = vec4(translated * u_zoom * u_scale, 0, 1.0);
 
         //float aspect_ratio = u_resolution.x / u_resolution.y;
         //v_plot_position = backdrop_pos * vec2(aspect_ratio, 1) / u_zoom;
@@ -32,18 +34,12 @@
     }
 
     void main(void) {
-        float r2 = sqr(v_plot_position.x) + sqr(v_plot_position.y);
+        float r2 = sqrt(sqr(v_plot_position.x) + sqr(v_plot_position.y));
 
-        if (abs(v_plot_position.x) < 1.0 && abs(v_plot_position.y) < 1.0)
-            gl_FragColor = vec4(r2, r2, r2, 1);
+        if (abs(v_plot_position.x) > .01 || abs(v_plot_position.y) > .01)
+            gl_FragColor = vec4(0, v_plot_position.x, v_plot_position.y, 1);
         else
-            gl_FragColor = vec4(0, 0, 0, 1);
-        /* gl_FragColor = vec4(
-            v_plot_position.x / v_plot_position.y,
-            v_plot_position.y * v_plot_position.y,
-            v_plot_position.x * v_plot_position.y,
-            1);
-        */
+            gl_FragColor = vec4(1, 0, 0, 1);
     }
 
 </script>
@@ -54,12 +50,13 @@
     }
 </script>
 <style>
-    #canvas { height: 480px; width: 640px; }
+    #canvas { height: 480px; width: 640px; padding: 0; margin: 0; }
 </style>
 </head>
 
 <body>
     <canvas id='canvas'></canvas>
+    <div id='debug'></div>
 </body>
 
 </html>

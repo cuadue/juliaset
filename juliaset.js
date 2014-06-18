@@ -167,6 +167,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
 
     var set_zoom = uniform_setter('1f', 'u_zoom');
     var set_scale = uniform_setter('2f', 'u_scale');
+    var set_translation = uniform_setter('2f', 'u_translation');
 
     var draw_backdrop = vertex_attrib({
         program: program,
@@ -174,16 +175,17 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         item_size: 2,
         array_mode: gl.TRIANGLE_STRIP,
         vertices: [
-             10,  10,
-            -10,  10,
-             10, -10,
-            -10, -10]
+             1,  1,
+            -1,  1,
+             1, -1,
+            -1, -1]
     });
 
     gl.useProgram(program);
 
-    var global_zoom = .05;
+    var global_zoom = .5;
     var global_center = {x: 0, y: 0};
+    var aspect_ratio;
 
     function draw() {
         // Why do I have to do this?? It removes some awful aliasing artifacts,
@@ -193,17 +195,15 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         canvas.height = h;
         canvas.width = w;
         gl.viewport(0, 0, w, h);
-        set_scale(h/w, 1);
+        aspect_ratio = w / h
+        set_scale(1, aspect_ratio);
 
         gl.clearColor(0.5, 0.5, 0.5, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        //var w = 200;
-        //var h = 100;
-        //gl.perspective(45, w/h, 0.01, 100);
-        //set_resolution(w, h);
-
         set_zoom(global_zoom);
+        set_translation(global_center.x, global_center.y);
+
         draw_backdrop();
 
         req_anim_frame(draw);
@@ -212,30 +212,74 @@ function juliaset(canvas_id, frag_id, vertex_id) {
     draw();
 
     call(function () {
-        function screen_coords_to_plot(sx, sy) {
-            
-            return {x: px, y: py};
+        var mouse_start;
+        var center_start;
+
+        function click_loc(elem, event) {
+            var elem_rect = elem.getBoundingClientRect();
+            return {
+                x: event.clientX - elem_rect.left,
+                y: event.clientY - elem_rect.top
+            }
         }
 
-        var start;
         canvas.onmousedown = function canvas_onmousedown(event) {
-            start = { x: event.clientX, y: event.clientY }
+            if (mouse_start || center_start) return;
+            mouse_start = click_loc(canvas, event);
+            center_start = { x: global_center.x, y: global_center.y };
         };
 
+        function logxy(pre, xy) {
+            console.log(pre + ': ' + xy.x + ', ' + xy.y);
+        }
+
+        canvas.onmousemove = function canvas_onmousemove(event) {
+            if (!center_start) return;
+
+            mouse = click_loc(canvas, event);
+
+            var w = canvas.width;
+            var h = canvas.height;
+            var dx = mouse_start.x - mouse.x;
+            var dy = mouse_start.y - mouse.y;
+
+            global_center = {
+                x: center_start.x + dx / global_zoom / w,
+                y: center_start.y - dy / global_zoom / h * aspect_ratio
+            }
+        };
+
+        function screen_coords_to_plot(center, sx, sy) {
+            var w = canvas.width;
+            var h = canvas.height;
+            sy = h - sy;
+            return {
+                x: (sx / w - 0.5) / global_zoom + center.x,
+                y: (sy / h - 0.5) * aspect_ratio / global_zoom + center.y
+            }
+        }
+
         canvas.onmouseup = function canvas_onmouseup(event) {
-            if (!start) return;
+            if (mouse_start && center_start) {
+                mouse = click_loc(canvas, event);
 
-            var x = event.clientX;
-            var y = event.clientY;
-            if (Math.abs(x - start.x) < 5 && Math.abs(y - start.y) < 5) {
-                // Click
-                global_zoom *= 2;
-            }
-            else {
-                // Drag
+                var w = canvas.width;
+                var h = canvas.height;
+
+                var dx = mouse_start.x - mouse.x;
+                var dy = mouse_start.y - mouse.y;
+
+                var p = screen_coords_to_plot(center_start, mouse.x, mouse.y);
+
+                if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+                    // Click
+                    global_center = { x: p.x, y: p.y };
+                    console.log('Moving absolute center');
+                }
             }
 
-            start = null;
+            mouse_start = null;
+            center_start = null;
         };
     });
 }
