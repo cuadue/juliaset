@@ -32,7 +32,7 @@ function element_by_id(id) {
         throw 'Failed finding element with ID ' + ret;
 }
 
-function juliaset(canvas_id, frag_id, vertex_id) {
+function juliaset(canvas_id, frag_src, vertex_src) {
     var canvas = element_by_id(canvas_id);
     var gl = get_webgl(canvas);
 
@@ -43,23 +43,9 @@ function juliaset(canvas_id, frag_id, vertex_id) {
 
     if (!req_anim_frame) return;
 
-    function shader_object(id) {
-        var elem = element_by_id(id);
-
-        var shader_type;
-
-        if (elem.type.match(/x-fragment/i)) {
-            shader_type = gl.FRAGMENT_SHADER;
-        }
-        else if (elem.type.match(/x-vertex/i)) {
-            shader_type = gl.VERTEX_SHADER;
-        }
-        else {
-            throw 'Unknown shader type ' + elem.type;
-        }
-        
-        var obj = gl.createShader(shader_type);
-        gl.shaderSource(obj, elem.innerHTML);
+    function shader_object(type, src) {
+        var obj = gl.createShader(type);
+        gl.shaderSource(obj, src);
         gl.compileShader(obj);
 
         if (!gl.getShaderParameter(obj, gl.COMPILE_STATUS)) {
@@ -161,8 +147,8 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         return func.curry(loc).bind(gl);
     }
 
-    var frag_shader = shader_object(frag_id);
-    var vertex_shader = shader_object(vertex_id);
+    var frag_shader = shader_object(gl.FRAGMENT_SHADER, frag_src);
+    var vertex_shader = shader_object(gl.VERTEX_SHADER, vertex_src);
     var program = shader_program(frag_shader, vertex_shader);
 
     var set_zoom = uniform_setter('1f', 'u_zoom');

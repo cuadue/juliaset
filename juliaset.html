@@ -4,98 +4,51 @@
 <meta charset=UTF-8>
 <script src=juliaset.js></script>
 
-<script id=vertex-shader type=x-shader/x-vertex>
-    precision highp float;
-
-    attribute vec2 backdrop_pos;
-    varying vec2 v_plot_position;
-    uniform float u_zoom;
-    uniform vec2 u_scale;
-    uniform vec2 u_translation;
-
-    void main(void)
-    {
-        vec2 translated = backdrop_pos - u_translation;
-        gl_Position = vec4(translated * u_zoom * u_scale, 0, 1.0);
-        v_plot_position = backdrop_pos;
-    }
-
-</script>
-
-<script id=frag-shader type=x-shader/x-fragment>
-    precision highp float;
-
-    varying vec2 v_plot_position;
-
-    float sqr(float x) {
-        return x * x;
-    }
-
-    const int max_iter = 1000;
-    const float saturation = 0.8, luminance = 0.8;
-
-    vec3 hsl_to_rgb(float h, float s, float l)
-    {
-        h = h * 360.0 / 60.0;
-
-        float h_mod_2 = h;
-
-        // This is h % 2.0 for 0 <= h < 60 since (I think) GLSL requires a
-        // constant number of iterations in any loop.
-        for (int i = 0; i < 30; i++) if (h_mod_2 > 2.0) h_mod_2 -= 2.0;
-
-        float c = s * s * (1.0 - abs(l - 1.0));
-        float x = c * (1.0 - abs(h_mod_2));
-
-        int ih = int(h);
-
-        if (ih == 0) return vec3(c, x, 0);
-        if (ih == 1) return vec3(x, c, 0);
-        if (ih == 2) return vec3(0, c, x);
-        if (ih == 3) return vec3(0, x, c);
-        if (ih == 4) return vec3(x, 0, c);
-        if (ih == 5) return vec3(c, 0, x);
-        return vec3(0, 0, 0);
-    }
-
-    void main(void)
-    {
-        float x0 = v_plot_position.x;
-        float y0 = v_plot_position.y;
-
-        float x = 0.0, y = 0.0;
-
-        int num_iter = 0;
-        for (int i = 0; i < max_iter; i++) {
-            float xtmp = sqr(x) - sqr(y) + x0;
-            y = 2.0 * x * y + y0;
-            x = xtmp;
-
-            num_iter++;
-
-            if (sqr(x) + sqr(y) > 2.0) {
-                break;
-            }
-        }
-
-        float h = float(num_iter) / float(max_iter);
-        gl_FragColor = vec4(hsl_to_rgb(h, saturation, luminance), 1);
-
-        /*
-        float r2 = sqrt(sqr(v_plot_position.x) + sqr(v_plot_position.y));
-
-        if (abs(v_plot_position.x) > .01 || abs(v_plot_position.y) > .01)
-            gl_FragColor = vec4(0, v_plot_position.x, v_plot_position.y, 1);
-        else
-            gl_FragColor = vec4(1, 0, 0, 1);
-        */
-    }
-</script>
-
 <script>
-    window.onload = function () {
-      juliaset('canvas', 'frag-shader', 'vertex-shader');
+    Array.prototype.all = function array_all(predicate) {
+        var ret = true;
+        this.map(function (elem) { ret = ret && predicate(elem); });
+        return ret;
     }
+
+    function on_ready(callback) {
+        if (document.readyState === 'complete') {
+            callback();
+        }
+        else {
+            setTimeout(function () { on_ready(callback); }, 10);
+        }
+    }
+
+    function multiple_xhr(urls, callback) {
+        var ret = {};
+
+        urls.map(function (url) {
+            ret[url] = null;
+        });
+
+        urls.map(function load_one(url) {
+            var req = new XMLHttpRequest();
+            req.open('GET', url, true);
+            req.onload = function () {
+                ret[url] = req.responseText;
+
+                if (urls.all(function (url) { return !!ret[url] })) {
+                    callback(ret);
+                }
+            }
+            req.send();
+        });
+    }
+
+    on_ready(function () {
+        var frag = 'mandelbrot.frag';
+        var vert = 'mandelbrot.vert';
+
+        multiple_xhr([frag, vert], function init(files) {
+            juliaset('canvas', files[frag], files[vert]);
+        });
+    });
 </script>
 <style>
     #canvas { height: 480px; width: 640px; padding: 0; margin: 0; }
