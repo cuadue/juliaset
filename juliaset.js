@@ -169,7 +169,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
     var set_scale = uniform_setter('2f', 'u_scale');
     var set_translation = uniform_setter('2f', 'u_translation');
 
-    var left = -2.5, right = 1, top = 1.5, bot = -1.5;
+    var left = -1.5, right = .5, top = 1, bot = -1;
 
     var draw_backdrop = vertex_attrib({
         program: program,
@@ -185,11 +185,11 @@ function juliaset(canvas_id, frag_id, vertex_id) {
 
     gl.useProgram(program);
 
-    var global_zoom = .5;
+    var global_zoom = .8;
     var global_center = {x: (left + right) / 2, y: (top + bot) / 2};
     var aspect_ratio;
 
-    function draw() {
+    function _draw() {
         // Why do I have to do this?? It removes some awful aliasing artifacts,
         // and fixes the aspect ratio.
         var w = gl.canvas.clientWidth;
@@ -207,8 +207,10 @@ function juliaset(canvas_id, frag_id, vertex_id) {
         set_translation(global_center.x, global_center.y);
 
         draw_backdrop();
+    }
 
-        req_anim_frame(draw);
+    function draw() {
+        req_anim_frame(_draw);
     }
 
     draw();
@@ -249,6 +251,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
                 x: center_start.x + dx / global_zoom / w,
                 y: center_start.y - dy / global_zoom / h * aspect_ratio
             }
+            draw();
         };
 
         function screen_coords_to_plot(center, sx, sy) {
@@ -277,6 +280,7 @@ function juliaset(canvas_id, frag_id, vertex_id) {
                     // Click
                     global_center = { x: p.x, y: p.y };
                     global_zoom *= 1.5;
+                    draw();
                 }
             }
 
