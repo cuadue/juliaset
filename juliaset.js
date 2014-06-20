@@ -17,6 +17,12 @@ Function.prototype.curry = function () {
     }
 }
 
+Array.prototype.all = function array_all(predicate) {
+    var ret = true;
+    this.map(function (elem) { ret = ret && predicate(elem); });
+    return ret;
+}
+
 function set_default_args(args, defaults) {
     var ret = {};
     for (key in defaults)
@@ -32,7 +38,56 @@ function element_by_id(id) {
         throw 'Failed finding element with ID ' + ret;
 }
 
-function juliaset(canvas_id, frag_src, vertex_src) {
+function load_resources(args, callback) {
+    var ret = {};
+    var urls = Object.keys(args);
+    var remaining = urls.length;
+
+    function complete() {
+        remaining--;
+        if (remaining === 0)
+            callback(ret);
+    }
+
+    function load_image(url) {
+        var img = new Image();
+        img.src = url;
+        img.onload = function () {
+            ret[url] = img;
+            console.log('Finished loading ' + url);
+            complete();
+        }
+
+        img.onerror = function () {
+            throw 'Failed loading image at ' + url;
+        }
+    }
+    
+    function load_text(url) {
+        var req = new XMLHttpRequest();
+        req.open('GET', url, true);
+        req.onload = function () {
+            ret[url] = req.responseText;
+            console.log('Finished loading ' + url);
+            complete();
+        };
+
+        req.onerror = function () {
+            throw 'Failed loading text at ' + url;
+        }
+
+        req.overrideMimeType('text/plain');
+        req.send();
+    }
+
+    urls.forEach(function (url) {
+        var load = {image: load_image, text: load_text}[args[url]];
+        if (!load) throw "Don't know how to load " + url + " type " + args[url];
+        load(url);
+    });
+}
+
+function __juliaset(canvas_id, resources) {
     var canvas = element_by_id(canvas_id);
     var gl = get_webgl(canvas);
 
@@ -147,9 +202,38 @@ function juliaset(canvas_id, frag_src, vertex_src) {
         return func.curry(loc).bind(gl);
     }
 
-    var frag_shader = shader_object(gl.FRAGMENT_SHADER, frag_src);
-    var vertex_shader = shader_object(gl.VERTEX_SHADER, vertex_src);
+    var make_texture = call(function () {
+        var next_tex_index = 0;
+        return function make_texture(tex_data) {
+            if (next_tex_index > 31) {
+                throw 'Out of GL textures';
+            }
+
+            var tex_index = gl.TEXTURE0 + next_tex_index;
+            next_tex_index++;
+
+            var texture = gl.createTexture();
+            gl.activeTexture(tex_index);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            tex_param = gl.texParameteri.curry(gl.TEXTURE_2D).bind(gl);
+            tex_param(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            tex_param(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            tex_param(gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            tex_param(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+                          gl.UNSIGNED_BYTE, tex_data);
+
+            return tex_index;
+        };
+    });
+
+    var frag_shader = shader_object(gl.FRAGMENT_SHADER, resources['mandelbrot.frag']);
+    var vertex_shader = shader_object(gl.VERTEX_SHADER, resources['mandelbrot.vert']);
     var program = shader_program(frag_shader, vertex_shader);
+
+    var color_map_index = make_texture(resources['color_map.png']);
 
     var set_zoom = uniform_setter('1f', 'u_zoom');
     var set_scale = uniform_setter('2f', 'u_scale');
@@ -273,6 +357,17 @@ function juliaset(canvas_id, frag_src, vertex_src) {
             mouse_start = null;
             center_start = null;
         };
+    });
+}
+
+function juliaset(canvas_id) {
+    resource_spec = {
+        'mandelbrot.frag': 'text',
+        'mandelbrot.vert': 'text',
+        'color_map.png': 'image'
+    };
+    load_resources(resource_spec, function (resources) {
+        __juliaset(canvas_id, resources);
     });
 }
 

@@ -5,12 +5,6 @@
 <script src=juliaset.js></script>
 
 <script>
-    Array.prototype.all = function array_all(predicate) {
-        var ret = true;
-        this.map(function (elem) { ret = ret && predicate(elem); });
-        return ret;
-    }
-
     function on_ready(callback) {
         if (document.readyState === 'complete') {
             callback();
@@ -20,34 +14,8 @@
         }
     }
 
-    function multiple_xhr(urls, callback) {
-        var ret = {};
-
-        urls.map(function (url) {
-            ret[url] = null;
-        });
-
-        urls.map(function load_one(url) {
-            var req = new XMLHttpRequest();
-            req.open('GET', url, true);
-            req.onload = function () {
-                ret[url] = req.responseText;
-
-                if (urls.all(function (url) { return !!ret[url] })) {
-                    callback(ret);
-                }
-            }
-            req.send();
-        });
-    }
-
     on_ready(function () {
-        var frag = 'mandelbrot.frag';
-        var vert = 'mandelbrot.vert';
-
-        multiple_xhr([frag, vert], function init(files) {
-            juliaset('canvas', files[frag], files[vert]);
-        });
+            juliaset('canvas');
     });
 </script>
 <style>
@@ -58,6 +26,7 @@
 <body>
     <canvas id='canvas'></canvas>
     <div id='debug'></div>
+    <img src=color_map.png></img>
 </body>
 
 </html>
